@@ -1,7 +1,7 @@
 /build/
 /install/
 /log/
-cisstLog.txt
+cisstLog*.txt
 *.log
 *~
 CMakeLists.txt.user
