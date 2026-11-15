@@ -1,0 +1,14 @@
+{
+  "device": "/dev/input/by-id/REPLACE-WITH-YOUR-JOYSTICK-event-joystick",
+  "exclusive": true,
+  "buttons": [
+    {"key": "BTN_TRIGGER", "interfaces": ["Clutch", "ClutchMirror"]},
+    {"key": "BTN_THUMB"}
+  ],
+  "axes": [
+    {"code": "ABS_X"},
+    {"code": "ABS_Y", "calibration": {
+      "minimum": -32768, "center": 0, "maximum": 32767, "deadzone": 0
+    }}
+  ]
+}

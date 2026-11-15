@@ -1,0 +1,13 @@
+{
+  "components": [
+    {
+      "shared-library": "sawGenericInput",
+      "class-name": "mtsEvdev",
+      "constructor-arg": {
+        "Name": "Pedals",
+        "Period": 0.002
+      },
+      "configure-parameter": "pcsensor-pedals.json"
+    }
+  ]
+}

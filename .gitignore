@@ -1,0 +1,7 @@
+/build/
+/install/
+/log/
+cisstLog.txt
+*.log
+*~
+CMakeLists.txt.user

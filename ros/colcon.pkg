@@ -1,0 +1,4 @@
+{
+  "name": "saw_generic_input_ros",
+  "dependencies": ["cisst_ros_crtk", "sawGenericInputCore"]
+}
