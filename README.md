@@ -150,6 +150,20 @@ events, `set_device` (absolute path), `open_device`, and `close_device`. Closing
 stops retries; opening resumes them. Setting a new device while configured closes
 and reconnects. A path supplied with `SetDevice` before Configure overrides JSON.
 
+C++ applications can configure the same mappings directly, without a JSON file:
+
+```cpp
+sawGenericInput::Configuration config;
+config.Path = "/dev/input/by-id/YOUR-KEYBOARD-event-kbd";
+config.Exclusive = true;
+config.Buttons = {{KEY_SPACE, {"Keyboard"}, 0}, {KEY_Q, {"Quit"}, 0}};
+mtsEvdev keyboard("Keyboard");
+keyboard.Configure(config);
+```
+
+Include `<linux/input-event-codes.h>` for the key codes. Programmatic and JSON
+configuration use the same validation and can each be applied only once.
+
 The default task period is 2 ms, with at most 256 events read without blocking
 per iteration. Missing devices are retried once per second. Disconnection and
 queue overflow release buttons and publish zeroed, invalid aggregate data.

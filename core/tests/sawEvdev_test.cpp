@@ -153,6 +153,87 @@ void TestFanout(const std::string & filename) {
     manager->RemoveComponent("Evdev");
 }
 
+void TestProgrammaticConfiguration(void) {
+    sawGenericInput::Configuration config;
+    config.Path = "/dev/input/event0";
+    config.Buttons = {{KEY_A, {"Primary", "Secondary"}, 300}, {KEY_B, {}, 0}};
+    TestDevice device;
+    device.Configure(config);
+    FanoutListener listener;
+    auto * manager = mtsManagerLocal::GetInstance();
+    Check(manager->AddComponent(&device) && manager->AddComponent(&listener), "add programmatic components");
+    for (const auto & name : {"Primary", "Secondary", "Input"}) {
+        Check(manager->Connect("FanoutListener", name, "Evdev", name), "connect programmatic interface");
+    }
+    device.HandleKey(KEY_A, 1, 1000);
+    device.HandleKey(KEY_A, 0, 101000);
+    device.Frame();
+    Check(listener.Primary.size() == 3 && listener.Secondary.size() == 3
+          && listener.Primary.back().Type() == prmEventButton::CLICKED,
+          "programmatic mappings emit button events");
+    Check(listener.Frames.back().DigitalInputs().size() == 2, "programmatic aggregate ordering");
+    bool repeated = false;
+    try {
+        device.Configure(config);
+    } catch (const std::exception &) {
+        repeated = true;
+    }
+    Check(repeated, "programmatic configuration is allowed only once");
+    for (const auto & name : {"Primary", "Secondary", "Input"}) {
+        manager->Disconnect("FanoutListener", name, "Evdev", name);
+    }
+    manager->RemoveComponent("FanoutListener");
+    manager->RemoveComponent("Evdev");
+
+    const auto reject = [](const sawGenericInput::Configuration & invalid) {
+        bool rejected = false;
+        try {
+            TestDevice candidate;
+            candidate.Configure(invalid);
+        } catch (const std::exception &) {
+            rejected = true;
+        }
+        Check(rejected, "invalid programmatic configuration accepted");
+    };
+    auto invalid = config;
+    invalid.Path.clear();
+    reject(invalid);
+    invalid = config;
+    invalid.Path = "relative";
+    reject(invalid);
+    invalid = config;
+    invalid.Name = "ambiguous selector";
+    reject(invalid);
+    invalid = config;
+    invalid.Buttons.clear();
+    reject(invalid);
+    invalid = config;
+    invalid.Buttons[1].Code = KEY_A;
+    reject(invalid);
+    invalid = config;
+    invalid.Buttons[1].Interfaces = {"Secondary"};
+    reject(invalid);
+    invalid = config;
+    invalid.Buttons[0].Interfaces = {"Device"};
+    reject(invalid);
+    invalid = config;
+    invalid.Buttons[0].Interfaces = {""};
+    reject(invalid);
+    invalid = config;
+    invalid.Buttons[0].Code = KEY_MAX + 1;
+    reject(invalid);
+    invalid = config;
+    invalid.Axes.push_back({});
+    invalid.Axes[0].Calibrated = true;
+    reject(invalid);
+
+    config.Path.clear();
+    TestDevice overridden;
+    overridden.SetDevice("/dev/input/by-id/test-keyboard");
+    overridden.Configure(config);
+    Check(overridden.GetInterfaceProvided("Primary") != nullptr, "device override supplies programmatic selector");
+}
+
 int main(int argc, char ** argv) {
     try {
         Check(argc == 2, "expected sample config path");
@@ -251,6 +332,7 @@ int main(int argc, char ** argv) {
         manager->RemoveComponent("Listener");
         manager->RemoveComponent("Evdev");
         TestFanout(temp);
+        TestProgrammaticConfiguration();
         std::cout << "Button timing, repeat filtering, recovery, fanout, config validation and cisst connections passed\n";
     }
     catch (const std::exception & error) {

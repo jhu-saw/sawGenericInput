@@ -68,8 +68,6 @@ sawGenericInput::Configuration sawGenericInput::LoadConfiguration(const std::str
     }
     const auto & buttons = root["buttons"];
     Require(!root.isMember("buttons") || buttons.isArray(), "buttons must be an array");
-    std::set<unsigned int> codes;
-    std::set<std::string> interfaces;
     for (const auto & button : buttons) {
         Members(button, {"key", "interface", "interfaces", "quick_tap_ms"});
         int code = -1;
@@ -91,11 +89,6 @@ sawGenericInput::Configuration sawGenericInput::LoadConfiguration(const std::str
             Require(list.isArray() && !list.empty(), "interfaces must be a nonempty array");
             for (const auto & name : list) names.push_back(Text(name, "interface"));
         }
-        for (const auto & name : names) {
-            Require(name != "Device" && name != "Input", "Device and Input interfaces are reserved");
-            Require(interfaces.insert(name).second, "duplicate interface");
-        }
-        Require(codes.insert(static_cast<unsigned int>(code)).second, "duplicate key");
         unsigned int tap = 0;
         if (button.isMember("quick_tap_ms")) {
             Require(button["quick_tap_ms"].isUInt(), "quick_tap_ms must be a nonnegative integer");
@@ -105,7 +98,6 @@ sawGenericInput::Configuration sawGenericInput::LoadConfiguration(const std::str
     }
     const auto & axes = root["axes"];
     Require(!root.isMember("axes") || axes.isArray(), "axes must be an array");
-    std::set<unsigned int> axisCodes;
     for (const auto & axis : axes) {
         Members(axis, {"code", "calibration"});
         int code = -1;
@@ -117,7 +109,6 @@ sawGenericInput::Configuration sawGenericInput::LoadConfiguration(const std::str
         }
         Require(code >= 0 && code <= ABS_MAX, "axis code must name an EV_ABS code");
         Require(code < ABS_MT_SLOT, "multitouch axes are not supported");
-        Require(axisCodes.insert(code).second, "duplicate axis");
         sawGenericInput::AxisConfiguration entry;
         entry.Code = static_cast<unsigned int>(code);
         if (axis.isMember("calibration")) {
@@ -138,18 +129,50 @@ sawGenericInput::Configuration sawGenericInput::LoadConfiguration(const std::str
             entry.OutputMinimum = number("output_minimum", -32767, false);
             entry.OutputCenter = number("output_center", 0, false);
             entry.OutputMaximum = number("output_maximum", 32767, false);
-            Require(entry.Minimum < entry.Center && entry.Center < entry.Maximum, "calibration requires minimum < center < maximum");
-            Require(entry.Deadzone >= 0 && entry.Center - entry.Deadzone > entry.Minimum
-                    && entry.Center + entry.Deadzone < entry.Maximum, "invalid calibration deadzone");
-            Require((entry.OutputMinimum < entry.OutputCenter && entry.OutputCenter < entry.OutputMaximum)
-                    || (entry.OutputMinimum > entry.OutputCenter && entry.OutputCenter > entry.OutputMaximum), "invalid output range");
-            Require(std::isfinite(entry.Maximum - entry.Minimum)
-                    && std::isfinite(entry.OutputMaximum - entry.OutputMinimum), "calibration range is too large");
         }
         config.Axes.push_back(entry);
     }
-    Require(!config.Buttons.empty() || !config.Axes.empty(), "configure at least one button or axis");
+    ValidateConfiguration(config);
     return config;
+}
+
+void sawGenericInput::ValidateConfiguration(const Configuration & config) {
+    Require(config.Path.empty() != config.Name.empty(), "specify either a device path or a device name");
+    Require(config.Path.empty() || config.Path.front() == '/', "device path must be absolute");
+    Require(config.Vendor >= -1 && config.Vendor <= 0xffff
+            && config.Product >= -1 && config.Product <= 0xffff, "invalid vendor or product ID");
+    Require(!config.Buttons.empty() || !config.Axes.empty(), "configure at least one button or axis");
+    std::set<unsigned int> codes;
+    std::set<std::string> interfaces;
+    for (const auto & button : config.Buttons) {
+        Require(button.Code <= KEY_MAX, "key must be an EV_KEY code");
+        Require(codes.insert(button.Code).second, "duplicate key");
+        for (const auto & name : button.Interfaces) {
+            Require(!name.empty(), "interface must be a nonempty string");
+            Require(name != "Device" && name != "Input", "Device and Input interfaces are reserved");
+            Require(interfaces.insert(name).second, "duplicate interface");
+        }
+    }
+    std::set<unsigned int> axes;
+    for (const auto & axis : config.Axes) {
+        Require(axis.Code < ABS_MT_SLOT, "multitouch axes are not supported");
+        Require(axes.insert(axis.Code).second, "duplicate axis");
+        if (!axis.Calibrated) {
+            continue;
+        }
+        for (const auto value : {axis.Minimum, axis.Center, axis.Maximum, axis.Deadzone,
+                                 axis.OutputMinimum, axis.OutputCenter, axis.OutputMaximum}) {
+            Require(std::isfinite(value), "calibration values must be finite");
+        }
+        Require(axis.Minimum < axis.Center && axis.Center < axis.Maximum,
+                "calibration requires minimum < center < maximum");
+        Require(axis.Deadzone >= 0 && axis.Center - axis.Deadzone > axis.Minimum
+                && axis.Center + axis.Deadzone < axis.Maximum, "invalid calibration deadzone");
+        Require((axis.OutputMinimum < axis.OutputCenter && axis.OutputCenter < axis.OutputMaximum)
+                || (axis.OutputMinimum > axis.OutputCenter && axis.OutputCenter > axis.OutputMaximum), "invalid output range");
+        Require(std::isfinite(axis.Maximum - axis.Minimum)
+                && std::isfinite(axis.OutputMaximum - axis.OutputMinimum), "calibration range is too large");
+    }
 }
 
 double sawGenericInput::AxisConfiguration::Convert(double value) const {

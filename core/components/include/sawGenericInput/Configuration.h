@@ -5,12 +5,12 @@
 #include <sawGenericInput/sawGenericInputExport.h>
 namespace sawGenericInput {
 struct ButtonConfiguration {
-    unsigned int Code;
+    unsigned int Code = 0;
     std::vector<std::string> Interfaces; // Empty for aggregate input only.
-    unsigned int QuickTapMs;
+    unsigned int QuickTapMs = 0;
 };
 struct CISST_EXPORT AxisConfiguration {
-    unsigned int Code;
+    unsigned int Code = 0;
     bool Calibrated = false;
     double Minimum = 0.0, Center = 0.0, Maximum = 0.0, Deadzone = 0.0;
     double OutputMinimum = -32767.0, OutputCenter = 0.0, OutputMaximum = 32767.0;
@@ -26,5 +26,6 @@ struct Configuration {
     std::vector<AxisConfiguration> Axes;
 };
 CISST_EXPORT Configuration LoadConfiguration(const std::string & filename);
+CISST_EXPORT void ValidateConfiguration(const Configuration & config);
 }
 #endif

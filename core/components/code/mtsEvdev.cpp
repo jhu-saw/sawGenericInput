@@ -75,11 +75,20 @@ void mtsEvdev::Configure(const std::string & filename) {
     if (mConfigured) {
         throw std::runtime_error("sawGenericInput: Configure can only be called once");
     }
-    mConfig = sawGenericInput::LoadConfiguration(filename);
-    if (!mPathOverride.empty()) {
-        mConfig.Path = mPathOverride;
-        mConfig.Name.clear();
+    Configure(sawGenericInput::LoadConfiguration(filename));
+}
+
+void mtsEvdev::Configure(const sawGenericInput::Configuration & config) {
+    if (mConfigured) {
+        throw std::runtime_error("sawGenericInput: Configure can only be called once");
     }
+    auto selected = config;
+    if (!mPathOverride.empty()) {
+        selected.Path = mPathOverride;
+        selected.Name.clear();
+    }
+    sawGenericInput::ValidateConfiguration(selected);
+    mConfig = std::move(selected);
     mPendingData.DigitalInputs().SetSize(mConfig.Buttons.size());
     mPendingData.DigitalInputs().SetAll(false);
     mPendingData.AnalogInputs().SetSize(mConfig.Axes.size());

@@ -19,6 +19,7 @@ public:
     explicit mtsEvdev(const mtsTaskPeriodicConstructorArg & arg);
     ~mtsEvdev(void) override;
     void Configure(const std::string & filename = "") override;
+    void Configure(const sawGenericInput::Configuration & config);
     void Startup(void) override;
     void Run(void) override;
     void Cleanup(void) override;
@@ -27,7 +28,7 @@ public:
     void OpenDevice(void);
     void CloseDevice(void);
 protected:
-    // Kept independent of device IO to test the actual provided Button events.
+    // Kept independent of device IO to test the actual provided input events.
     void HandleKey(unsigned int code, int value, std::uint64_t time);
     void ReleaseAll(void);
     void HandleAbsolute(unsigned int code, int value);
